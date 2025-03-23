@@ -11,6 +11,8 @@ import shutil
 from typing import Optional
 import uuid
 import tempfile
+from mel_generator import MelSpectrogramGenerator
+from pathlib import Path
 
 app = FastAPI(title="TTS API", description="Text to Speech API using Coqui TTS")
 
@@ -25,6 +27,7 @@ app.add_middleware(
 
 # Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/generated_audio", StaticFiles(directory="generated_audio"), name="generated_audio")
 templates = Jinja2Templates(directory="templates")
 
 # Initialize TTS
@@ -34,6 +37,17 @@ tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
 # Create output directory
 OUTPUT_DIR = "generated_audio"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Create dataset directory if using default speaker
+os.makedirs("dataset/wavs", exist_ok=True)
+
+# After initializing TTS
+default_speaker = "dataset/wavs/1.wav"
+if not os.path.exists(default_speaker):
+    print(f"Warning: Default speaker file not found at {default_speaker}")
+
+# Add this after your existing initialization code
+mel_generator = MelSpectrogramGenerator()
 
 @app.get("/")
 async def read_root(request: Request):
@@ -47,20 +61,22 @@ async def generate_speech(
 ):
     try:
         # Generate unique filename
-        filename = f"{uuid.uuid4()}.wav"
-        output_path = os.path.join(OUTPUT_DIR, filename)
+        audio_filename = f"{uuid.uuid4()}.wav"
+        output_path = os.path.join(OUTPUT_DIR, audio_filename)
+        spec_filename = Path(audio_filename).with_suffix('.png').name
+        spec_path = os.path.join(OUTPUT_DIR, spec_filename)
         
         # Handle speaker file
         if speaker_wav:
-            # Save uploaded file temporarily
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
                 content = await speaker_wav.read()
                 temp_file.write(content)
                 temp_file.flush()
                 speaker_path = temp_file.name
         else:
-            # Use default speaker
             speaker_path = "dataset/wavs/1.wav"
+            if not os.path.exists(speaker_path):
+                raise FileNotFoundError(f"Default speaker file not found at {speaker_path}")
         
         # Generate speech
         tts.tts_to_file(
@@ -70,16 +86,27 @@ async def generate_speech(
             file_path=output_path
         )
         
+        # Generate mel spectrogram
+        try:
+            mel_spec = mel_generator.generate_mel_spectrogram(output_path)
+            print(f"Mel spectrogram generated: {spec_path}")
+        except Exception as e:
+            print(f"Mel spectrogram generation failed: {str(e)}")
+            spec_filename = None
+            
         # Clean up temporary file if it exists
         if speaker_wav and os.path.exists(speaker_path):
             os.unlink(speaker_path)
         
-        return FileResponse(
-            output_path,
-            media_type="audio/wav",
-            filename=filename
-        )
+        return {
+            "audio_file": audio_filename,
+            "spectrogram_file": spec_filename
+        }
+        
     except Exception as e:
+        print(f"Error details: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

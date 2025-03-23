@@ -3,6 +3,10 @@ import pandas as pd
 import shutil
 import torch
 from TTS.api import TTS
+from training import train_voice_clone_model, DeepVoiceConfig
+import librosa
+import matplotlib
+import numpy
 
 # Step 1: Set up paths
 DATASET_PATH = "./dataset"

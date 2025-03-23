@@ -1,33 +1,87 @@
-.qodo
-venv/
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.pyw
-*.pyz
-*.pywz
-*.pyc
-*.pyo
-*.pyd
-*.pyw
-*.pyz
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-*.wav
-*.mp3
-*.m4a
-*.ogg
-*.flac
-*.wav
-*.mp3
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
 
-*.wav
-*.mp3
-*.m4a
-*.ogg
-*.flac
-*.wav
-*.mp3
-
+# Generated audio files and spectrograms
+generated_audio/
 dataset/
 output/
+*.wav
+*.mp3
+*.png
+*.jpg
+*.jpeg
+
+# Model checkpoints and training data
+checkpoints/
+training_data/
+*.pth
+*.pt
+*.ckpt
+*.model
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# TTS specific
+voice_clone_project/
+tts_models/
+*.json
+!config/*.json
+
+# Temporary files
+tmp/
+temp/
+.temp/
+*.tmp
+
+# Documentation
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/

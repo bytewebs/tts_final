@@ -4,8 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Text to Speech Generator</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
+        .dark {
+            color-scheme: dark;
+        }
+        
+        .animated-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float 8s infinite ease-in-out;
+        }
+        
+        @keyframes float {
+            0% {
+                transform: translateY(0) translateX(0);
+            }
+            50% {
+                transform: translateY(-100px) translateX(50px);
+            }
+            100% {
+                transform: translateY(0) translateX(0);
+            }
+        }
+        
         .loading {
             display: none;
             position: fixed;
@@ -16,6 +50,7 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
         }
+        
         .loading-content {
             position: absolute;
             top: 50%;
@@ -26,22 +61,319 @@
             border-radius: 8px;
             text-align: center;
         }
+        
+        .dark .loading-content {
+            background: #1f2937;
+            color: white;
+        }
+        
+        .mode-switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 24px;
+        }
+        
+        .mode-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .mode-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .mode-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .mode-slider {
+            background-color: #3b82f6;
+        }
+        
+        input:checked + .mode-slider:before {
+            transform: translateX(16px);
+        }
+        
+        .tab {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .audio-waves {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+        }
+        
+        .wave {
+            width: 4px;
+            margin: 0 2px;
+            border-radius: 2px;
+            background: #3b82f6;
+            animation: wave 1s infinite ease-in-out;
+        }
+        
+        .dark .wave {
+            background: #60a5fa;
+        }
+        
+        @keyframes wave {
+            0%, 100% {
+                height: 8px;
+            }
+            50% {
+                height: 30px;
+            }
+        }
+        
+        .wave-1 { animation-delay: 0s; }
+        .wave-2 { animation-delay: 0.1s; }
+        .wave-3 { animation-delay: 0.2s; }
+        .wave-4 { animation-delay: 0.3s; }
+        .wave-5 { animation-delay: 0.4s; }
+        .wave-6 { animation-delay: 0.5s; }
+        .wave-7 { animation-delay: 0.6s; }
+        
+        .shine-effect {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .shine-effect::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.1) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            transform: rotate(30deg);
+            animation: shine 5s infinite linear;
+        }
+        
+        @keyframes shine {
+            0% { transform: translateX(-100%) rotate(30deg); }
+            100% { transform: translateX(100%) rotate(30deg); }
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        #spectrogramDisplay img {
+            max-width: 100%;
+            border-radius: 0.5rem;
+            transition: transform 0.3s ease;
+        }
+        
+        #spectrogramDisplay img:hover {
+            transform: scale(1.02);
+        }
+        
+        .dark #spectrogramDisplay {
+            background-color: #1f2937;
+        }
+        
+        .dark #spectrogramDisplay h2 {
+            color: #e5e7eb;
+        }
+
+        .conversion-animation {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .conversion-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
+        }
+
+        .spectrogram-side, .audio-side {
+            width: 45%;
+            height: 100%;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .conversion-arrow {
+            width: 10%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .arrow-animation {
+            position: relative;
+            width: 60px;
+            height: 2px;
+            background: #3b82f6;
+        }
+
+        .arrow-animation::after {
+            content: '';
+            position: absolute;
+            right: -2px;
+            top: -4px;
+            width: 10px;
+            height: 10px;
+            border-right: 2px solid #3b82f6;
+            border-top: 2px solid #3b82f6;
+            transform: rotate(45deg);
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #3b82f6;
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        @keyframes particleMove {
+            0% {
+                left: 0;
+                opacity: 1;
+            }
+            100% {
+                left: calc(100% - 4px);
+                opacity: 0;
+            }
+        }
+
+        .wave-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spec-to-audio {
+            animation: specToAudio 2s infinite;
+        }
+
+        @keyframes specToAudio {
+            0% {
+                transform: scaleY(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scaleY(0.5);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scaleY(1);
+                opacity: 1;
+            }
+        }
+
+        .dark .conversion-animation {
+            background: #1f2937;
+        }
+
+        .dark .arrow-animation,
+        .dark .arrow-animation::after {
+            background: #60a5fa;
+            border-color: #60a5fa;
+        }
+
+        .dark .particle {
+            background: #60a5fa;
+        }
+
+        .dark #spectrogramDisplay .bg-white {
+            background-color: #1f2937;
+        }
+        
+        .dark #spectrogramDisplay h2,
+        .dark #audioPlayer h2 {
+            color: #e5e7eb;
+        }
+        
+        .dark #spectrogramDisplay p {
+            color: #9ca3af;
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
-            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Text to Speech Generator</h1>
+<body class="bg-gray-100 min-h-screen transition-colors duration-300">
+    <div class="animated-background"></div>
+    
+    <div class="container mx-auto px-4 py-8 relative z-10">
+        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6 transition-colors duration-300">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 transition-colors duration-300">VoxGen</h1>
+                
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-700 text-sm transition-colors duration-300">Light</span>
+                    <label class="mode-switch">
+                        <input type="checkbox" id="themeToggle">
+                        <span class="mode-slider"></span>
+                    </label>
+                    <span class="text-gray-700 text-sm transition-colors duration-300">Dark</span>
+                </div>
+            </div>
+            
+            <div class="mb-6 flex space-x-1">
+                <div id="basicTab" class="tab py-2 px-4 bg-blue-500 text-white font-medium rounded-tl-lg rounded-bl-lg shine-effect">Generic TTS</div>
+                <div id="advancedTab" class="tab py-2 px-4 bg-gray-200 text-gray-700 font-medium rounded-tr-lg rounded-br-lg">Voice Cloner</div>
+            </div>
             
             <form id="ttsForm" class="space-y-4">
                 <div>
-                    <label for="text" class="block text-sm font-medium text-gray-700">Enter Text</label>
-                    <textarea id="text" name="text" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required></textarea>
+                    <label for="text" class="block text-sm font-medium text-gray-700 transition-colors duration-300">Enter Text</label>
+                    <textarea id="text" name="text" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition-colors duration-300" required></textarea>
                 </div>
 
                 <div>
-                    <label for="language" class="block text-sm font-medium text-gray-700">Language</label>
-                    <select id="language" name="language" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <label for="language" class="block text-sm font-medium text-gray-700 transition-colors duration-300">Language</label>
+                    <select id="language" name="language" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition-colors duration-300">
                         <option value="en">English</option>
                         <option value="es">Spanish</option>
                         <option value="fr">French</option>
@@ -50,19 +382,76 @@
                     </select>
                 </div>
 
-                <div>
-                    <label for="speaker" class="block text-sm font-medium text-gray-700">Voice Sample (Optional)</label>
-                    <input type="file" id="speaker" name="speaker_wav" accept=".wav" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <div id="advancedOptions" class="hidden">
+                    <label for="speaker" class="block text-sm font-medium text-gray-700 transition-colors duration-300">Voice Sample</label>
+                    <div class="file-input-wrapper w-full">
+                        <div class="mt-1 flex items-center w-full">
+                            <span id="fileName" class="flex-grow py-2 px-4 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 transition-colors duration-300">No file chosen</span>
+                            <button type="button" class="py-2 px-4 rounded-r-md border border-l-0 border-blue-500 bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-300">Browse</button>
+                            <input type="file" id="speaker" name="speaker_wav" accept=".wav" class="cursor-pointer">
+                        </div>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 transition-colors duration-300">Upload a .wav file to personalize the voice</p>
                 </div>
 
-                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                    Generate Speech
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-300 shine-effect">
+                    <i class="fas fa-microphone mr-2"></i> Generate Speech
                 </button>
             </form>
 
             <div id="audioPlayer" class="mt-6 hidden">
-                <h2 class="text-xl font-semibold mb-4">Generated Audio</h2>
+                <h2 class="text-xl font-semibold mb-4 text-gray-800 transition-colors duration-300">Generated Audio</h2>
+                
+                <div class="audio-waves mb-4">
+                    <div class="wave wave-1"></div>
+                    <div class="wave wave-2"></div>
+                    <div class="wave wave-3"></div>
+                    <div class="wave wave-4"></div>
+                    <div class="wave wave-5"></div>
+                    <div class="wave wave-6"></div>
+                    <div class="wave wave-7"></div>
+                </div>
+                
                 <audio id="audio" controls class="w-full"></audio>
+            </div>
+
+            <div id="conversionAnimation" class="conversion-animation mt-6">
+                <div class="conversion-container">
+                    <div class="spectrogram-side">
+                        <img id="animatedSpectrogram" class="w-full h-full object-cover" alt="Spectrogram">
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent to-white opacity-20"></div>
+                    </div>
+                    
+                    <div class="conversion-arrow">
+                        <div class="arrow-animation">
+                            <div class="particle"></div>
+                            <div class="particle"></div>
+                            <div class="particle"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="audio-side">
+                        <div class="wave-container">
+                            <div class="audio-waves">
+                                <div class="wave spec-to-audio"></div>
+                                <div class="wave spec-to-audio"></div>
+                                <div class="wave spec-to-audio"></div>
+                                <div class="wave spec-to-audio"></div>
+                                <div class="wave spec-to-audio"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="spectrogramDisplay" class="mt-6 hidden">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800 transition-colors duration-300">Mel Spectrogram</h2>
+                <div class="w-full bg-white rounded-lg shadow-lg p-4">
+                    <img id="spectrogram" class="w-full h-auto rounded mb-4" alt="Mel Spectrogram">
+                    <p class="text-sm text-gray-600 italic">
+                        This Mel spectrogram is generated from the input text, conditioned on the target speaker's embedding, and later converted into speech using a neural vocoder.
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -70,11 +459,153 @@
     <div id="loading" class="loading">
         <div class="loading-content">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p class="mt-4 text-gray-700">Generating speech...</p>
+            <p class="mt-4 transition-colors duration-300">Generating speech...</p>
+            <p class="text-sm text-gray-500 mt-2 transition-colors duration-300">This may take a few seconds</p>
         </div>
     </div>
 
     <script>
+        // Create animated background bubbles
+        function createBubbles() {
+            const background = document.querySelector('.animated-background');
+            background.innerHTML = '';
+            const colors = isDarkMode ? 
+                ['#3b82f6', '#60a5fa', '#93c5fd', '#2563eb'] : 
+                ['#93c5fd', '#60a5fa', '#3b82f6', '#dbeafe'];
+            
+            for (let i = 0; i < 15; i++) {
+                const bubble = document.createElement('div');
+                bubble.classList.add('bubble');
+                
+                const size = Math.random() * 100 + 50;
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                bubble.style.width = `${size}px`;
+                bubble.style.height = `${size}px`;
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.top = `${Math.random() * 100}%`;
+                bubble.style.backgroundColor = color;
+                bubble.style.animationDuration = `${Math.random() * 10 + 5}s`;
+                bubble.style.animationDelay = `${Math.random() * 5}s`;
+                
+                background.appendChild(bubble);
+            }
+        }
+        
+        // Theme toggle functionality
+        let isDarkMode = false;
+        const themeToggle = document.getElementById('themeToggle');
+        
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.body.classList.add('dark');
+                document.body.classList.remove('bg-gray-100');
+                document.body.classList.add('bg-gray-900');
+                document.querySelector('.max-w-2xl').classList.remove('bg-white');
+                document.querySelector('.max-w-2xl').classList.add('bg-gray-800');
+                
+                // Update text colors
+                document.querySelectorAll('.text-gray-700, .text-gray-800').forEach(el => {
+                    el.classList.remove('text-gray-700', 'text-gray-800');
+                    el.classList.add('text-gray-200');
+                });
+                
+                // Update background colors for inputs
+                document.querySelectorAll('textarea, select').forEach(el => {
+                    el.classList.add('bg-gray-700', 'text-white', 'border-gray-600');
+                });
+                
+                if (document.getElementById('fileName')) {
+                    document.getElementById('fileName').classList.add('bg-gray-700', 'text-gray-300', 'border-gray-600');
+                }
+            } else {
+                document.body.classList.remove('dark');
+                document.body.classList.add('bg-gray-100');
+                document.body.classList.remove('bg-gray-900');
+                document.querySelector('.max-w-2xl').classList.add('bg-white');
+                document.querySelector('.max-w-2xl').classList.remove('bg-gray-800');
+                
+                // Restore text colors
+                document.querySelectorAll('.text-gray-200').forEach(el => {
+                    el.classList.remove('text-gray-200');
+                    el.classList.add('text-gray-800');
+                });
+                
+                // Restore background colors for inputs
+                document.querySelectorAll('textarea, select').forEach(el => {
+                    el.classList.remove('bg-gray-700', 'text-white', 'border-gray-600');
+                });
+                
+                if (document.getElementById('fileName')) {
+                    document.getElementById('fileName').classList.remove('bg-gray-700', 'text-gray-300', 'border-gray-600');
+                }
+            }
+            
+            // Recreate bubbles with theme-appropriate colors
+            createBubbles();
+        }
+        
+        themeToggle.addEventListener('change', toggleTheme);
+        
+        // Tab switching functionality
+        const basicTab = document.getElementById('basicTab');
+        const advancedTab = document.getElementById('advancedTab');
+        const advancedOptions = document.getElementById('advancedOptions');
+        const ttsForm = document.getElementById('ttsForm');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const spectrogramDisplay = document.getElementById('spectrogramDisplay');
+        
+        function resetForm() {
+            // Reset text area
+            document.getElementById('text').value = '';
+            
+            // Reset language select to default
+            document.getElementById('language').value = 'en';
+            
+            // Reset file input and filename display
+            document.getElementById('speaker').value = '';
+            document.getElementById('fileName').textContent = 'No file chosen';
+            
+            // Hide audio player
+            audioPlayer.classList.add('hidden');
+            
+            // Stop and reset audio if it's playing
+            const audio = document.getElementById('audio');
+            audio.pause();
+            audio.currentTime = 0;
+            
+            // Reset wave animations
+            document.querySelectorAll('.wave').forEach(wave => {
+                wave.style.animationPlayState = 'paused';
+            });
+        }
+        
+        basicTab.addEventListener('click', () => {
+            basicTab.classList.remove('bg-gray-200', 'text-gray-700');
+            basicTab.classList.add('bg-blue-500', 'text-white');
+            advancedTab.classList.remove('bg-blue-500', 'text-white');
+            advancedTab.classList.add('bg-gray-200', 'text-gray-700');
+            advancedOptions.classList.add('hidden');
+            resetForm();
+        });
+        
+        advancedTab.addEventListener('click', () => {
+            advancedTab.classList.remove('bg-gray-200', 'text-gray-700');
+            advancedTab.classList.add('bg-blue-500', 'text-white');
+            basicTab.classList.remove('bg-blue-500', 'text-white');
+            basicTab.classList.add('bg-gray-200', 'text-gray-700');
+            advancedOptions.classList.remove('hidden');
+            resetForm();
+        });
+        
+        // File input display functionality
+        document.getElementById('speaker').addEventListener('change', function() {
+            const fileName = this.files[0] ? this.files[0].name : 'No file chosen';
+            document.getElementById('fileName').textContent = fileName;
+        });
+        
+        // Form submission
         document.getElementById('ttsForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -83,6 +614,7 @@
             const speakerFile = document.getElementById('speaker').files[0];
             const loading = document.getElementById('loading');
             const audioPlayer = document.getElementById('audioPlayer');
+            const spectrogramDisplay = document.getElementById('spectrogramDisplay');
             const audio = document.getElementById('audio');
 
             if (!text) {
@@ -91,12 +623,11 @@
             }
 
             loading.style.display = 'block';
-
+            
             try {
                 const formData = new FormData();
                 formData.append('text', text);
                 formData.append('language', language);
-
                 if (speakerFile) {
                     formData.append('speaker_wav', speakerFile);
                 }
@@ -107,20 +638,65 @@
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Failed to generate speech');
+                    throw new Error('Failed to generate speech');
                 }
 
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                audio.src = url;
+                const data = await response.json();
+                
+                // Set up audio player
+                audio.src = `/generated_audio/${data.audio_file}`;
                 audioPlayer.classList.remove('hidden');
+                
+                // Display spectrogram if available
+                if (data.spectrogram_file) {
+                    document.getElementById('spectrogram').src = `/generated_audio/${data.spectrogram_file}`;
+                    spectrogramDisplay.classList.remove('hidden');
+                }
+                
             } catch (error) {
                 alert('Error generating speech: ' + error.message);
             } finally {
                 loading.style.display = 'none';
             }
         });
+        
+        // Initialize the background
+        createBubbles();
+        
+        // Initialize waves in paused state
+        document.querySelectorAll('.wave').forEach(wave => {
+            wave.style.animationPlayState = 'paused';
+        });
+
+        // Add this to your existing JavaScript
+        function startConversionAnimation() {
+            const conversionAnimation = document.getElementById('conversionAnimation');
+            conversionAnimation.style.display = 'block';
+            
+            // Create particles
+            const particles = document.querySelectorAll('.particle');
+            particles.forEach((particle, index) => {
+                particle.style.animation = `particleMove 2s ${index * 0.3}s infinite`;
+            });
+        }
+
+        function updateAnimatedSpectrogram(spectrogramUrl) {
+            const animatedSpectrogram = document.getElementById('animatedSpectrogram');
+            animatedSpectrogram.src = spectrogramUrl;
+        }
+
+        // Add audio playback control for animation
+        document.getElementById('audio').addEventListener('play', function() {
+            document.querySelectorAll('.spec-to-audio').forEach(wave => {
+                wave.style.animationPlayState = 'running';
+            });
+        });
+
+        document.getElementById('audio').addEventListener('pause', function() {
+            document.querySelectorAll('.spec-to-audio').forEach(wave => {
+                wave.style.animationPlayState = 'paused';
+            });
+        });
     </script>
 </body>
-</html> 
+</html>
