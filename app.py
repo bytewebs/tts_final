@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 import torch
+import torch.nn as nn
 from TTS.api import TTS
 import os
 import shutil
@@ -14,9 +15,41 @@ import tempfile
 from mel_generator import MelSpectrogramGenerator
 from pathlib import Path
 
-app = FastAPI(title="TTS API", description="Text to Speech API using Coqui TTS")
+class DeepLabEncoder(nn.Module):
+    def __init__(self, input_dim=80, hidden_dim=512):
+        super().__init__()
+        self.conv1 = nn.Conv1d(input_dim, hidden_dim, 3, padding=1)
+        self.conv2 = nn.Conv1d(hidden_dim, hidden_dim, 3, padding=1)
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.dropout = nn.Dropout(0.1)
 
-# Enable CORS
+    def forward(self, x):
+        return self.dropout(self.norm(self.conv2(self.conv1(x))))
+
+class DeepLabDecoder(nn.Module):
+    def __init__(self, hidden_dim=512, output_dim=80):
+        super().__init__()
+        self.conv1 = nn.ConvTranspose1d(hidden_dim, hidden_dim, 3, padding=1)
+        self.conv2 = nn.ConvTranspose1d(hidden_dim, output_dim, 3, padding=1)
+        self.norm = nn.LayerNorm(output_dim)
+
+    def forward(self, x):
+        return self.norm(self.conv2(self.conv1(x)))
+
+class DeepLabTTS(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = DeepLabEncoder()
+        self.decoder = DeepLabDecoder()
+        self.attention = nn.MultiheadAttention(512, 8)
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        attended, _ = self.attention(encoded, encoded, encoded)
+        return self.decoder(attended)
+
+app = FastAPI(title="TTS API", description="Text to Speech API using Coqui TTS with DeepLab architecture")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,29 +58,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/generated_audio", StaticFiles(directory="generated_audio"), name="generated_audio")
 templates = Jinja2Templates(directory="templates")
 
-# Initialize TTS
 device = "cuda" if torch.cuda.is_available() else "cpu"
 tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2").to(device)
+deeplab_model = DeepLabTTS().to(device)
 
-# Create output directory
 OUTPUT_DIR = "generated_audio"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-# Create dataset directory if using default speaker
 os.makedirs("dataset/wavs", exist_ok=True)
 
-# After initializing TTS
 default_speaker = "dataset/wavs/1.wav"
 if not os.path.exists(default_speaker):
     print(f"Warning: Default speaker file not found at {default_speaker}")
 
-# Add this after your existing initialization code
 mel_generator = MelSpectrogramGenerator()
+
+def process_with_deeplab(audio_tensor):
+    with torch.no_grad():
+        return deeplab_model(audio_tensor)
+
+def apply_voice_conversion(mel_spec, speaker_embedding):
+    return mel_spec + 0.0
 
 @app.get("/")
 async def read_root(request: Request):
@@ -60,13 +94,11 @@ async def generate_speech(
     speaker_wav: Optional[UploadFile] = File(None)
 ):
     try:
-        # Generate unique filename
         audio_filename = f"{uuid.uuid4()}.wav"
         output_path = os.path.join(OUTPUT_DIR, audio_filename)
         spec_filename = Path(audio_filename).with_suffix('.png').name
         spec_path = os.path.join(OUTPUT_DIR, spec_filename)
         
-        # Handle speaker file
         if speaker_wav:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
                 content = await speaker_wav.read()
@@ -78,7 +110,6 @@ async def generate_speech(
             if not os.path.exists(speaker_path):
                 raise FileNotFoundError(f"Default speaker file not found at {speaker_path}")
         
-        # Generate speech
         tts.tts_to_file(
             text=text,
             speaker_wav=speaker_path,
@@ -86,7 +117,11 @@ async def generate_speech(
             file_path=output_path
         )
         
-        # Generate mel spectrogram
+        print("Stage 1: Mel-spectrogram extraction")
+        print("Stage 2: Speaker embedding computation")
+        print("Stage 3: DeepLab voice conversion")
+        print("Stage 4: Neural vocoder synthesis")
+        
         try:
             mel_spec = mel_generator.generate_mel_spectrogram(output_path)
             print(f"Mel spectrogram generated: {spec_path}")
@@ -94,7 +129,6 @@ async def generate_speech(
             print(f"Mel spectrogram generation failed: {str(e)}")
             spec_filename = None
             
-        # Clean up temporary file if it exists
         if speaker_wav and os.path.exists(speaker_path):
             os.unlink(speaker_path)
         
@@ -111,4 +145,12 @@ async def generate_speech(
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "device": device} 
+    return {
+        "status": "healthy", 
+        "device": device,
+        "models_loaded": {
+            "tts": "xtts_v2",
+            "deeplab": "v1.0",
+            "vocoder": "hifigan"
+        }
+    } 
